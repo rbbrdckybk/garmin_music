@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 # Usage help: python garmin-music.py --help
-# Example: python garmin-music.py --playlist "C:\Music\Running\Running_2026.m3u" --output "C:\Music\Garmin" --bitrate 320k
+# Example: python garmin-music.py --input_dir "C:\Music\Playlists" --output_dir "C:\Music\Garmin" --bitrate 320k
 
 from pydub import AudioSegment
 from mutagen.easyid3 import EasyID3
@@ -171,84 +171,26 @@ def transcode_to_mp3(input_file, output_file, bitrate="320k"):
         copy_art(input_file, output_file)
 
 
-# entry point
-if __name__ == '__main__':
-    print('\nStarting...\n')
-    
-    # define command-line args
-    ap = argparse.ArgumentParser()
-    ap.add_argument(
-        '--playlist',
-        type=str,
-        required=True,
-        help='the playlist file to process'
-    )
-    ap.add_argument(
-        '--output_dir',
-        type=str,
-        default='output',
-        help='the output directory'
-    )
-    ap.add_argument(
-        '--bitrate',
-        type=str,
-        default='320k',
-        help='bitrate of encoded mp3 files, e.g.: 160k, 256k, 320k, etc'
-    )
-    ap.add_argument(
-        '--invalid_chars',
-        type=str,
-        default='<>":|?*',
-        help='invalid OS chars that may be present in playlist files'
-    )
-    ap.add_argument(
-        '--replacement_char',
-        type=str,
-        default='_',
-        help='replace all invalid characters with this character'
-    )
-    ap.add_argument(
-        '--garmin_music_root_path',
-        type=str,
-        default='Music/',
-        help='root path your Garmin device expects to find your music; will be prepended to all playlist songs'
-    )
-    options = ap.parse_args()
-    
-    # do some sanity checks on input options
-    input_directory_path = os.path.dirname(options.playlist)
-    if not exists(options.playlist):
-        print('Error: specified playlist file "' + options.playlist + '" does not exist; aborting!')
-        exit(-1)
-        
-    target_bitrate = options.bitrate.lower().replace('k', '')
-    try:
-        float(target_bitrate)
-    except:
-        print('Error: specified bitrate (' + options.bitrate + ') is not valid; aborting!')
-        exit(-1)
-        
-    if not options.bitrate.lower().endswith('k'):
-        options.bitrate = options.bitrate + 'k'
-
-    print("Input path: " + input_directory_path)
-    print("Output path: " + options.output_dir)
-
+# handles 
+def process_playlist(playlist, options):
+    print('\nWorking on "' + playlist + '":')
     # Read songs from specified playlist file
-    pf = TextFile(options.playlist)
+    pf = TextFile(playlist)
     total = pf.lines_remaining()
-    print('\nFound ' + str(total) + ' songs in "' + options.playlist + '":')
+    
     if pf.lines_remaining() == 0:
-        print('No songs in playlist, aborting!')
-        exit(-2)
+        print('No songs in "' + playlist + '", aborting!')
+        return
+    else:
+        print('Found ' + str(total) + ' songs in "' + playlist + '", starting...')
         
     # create output directory if it does not already exist;
     # create output playlist file
     os.makedirs(options.output_dir, exist_ok=True)
-    n, e = os.path.splitext(os.path.basename(options.playlist))
+    n, e = os.path.splitext(os.path.basename(playlist))
     output_filename = os.path.join(options.output_dir, n + '.m3u8')
     output_file = open(output_filename, "w", encoding = 'utf-8')
-      
+            
     invalid_chars = []
     if options.invalid_chars != '':
         invalid_chars = list(options.invalid_chars)
@@ -264,8 +206,8 @@ if __name__ == '__main__':
             if c in song:
                 print('\tReplaced invalid "' + str(c) + '" character(s) in "' + song + '"...')
                 song = song.replace(c, options.replacement_char)
-                
-        full_path_song = os.path.join(input_directory_path, song)
+        
+        full_path_song = os.path.join(options.input_dir, song)
         
         # process each song
         if exists(full_path_song):
@@ -303,9 +245,9 @@ if __name__ == '__main__':
             
             # get the path relative to the playlist file
             relative_path_song = full_path_song
-            if input_directory_path != '':
-                relative_path_song = full_path_song.replace(input_directory_path, '', 1)
-                if not input_directory_path.startswith(os.sep):
+            if options.input_dir != '':
+                relative_path_song = full_path_song.replace(options.input_dir, '', 1)
+                if not options.input_dir.startswith(os.sep):
                     if relative_path_song.startswith(os.sep):
                         relative_path_song = relative_path_song[1:]
             relative_path_song = os.path.dirname(relative_path_song)
@@ -316,6 +258,84 @@ if __name__ == '__main__':
             output_file.write(options.garmin_music_root_path + garmin_path + '\n')
         else:
             print('Error: specified playlist entry "' + full_path_song + '" does not exist!')
-        
     output_file.close()
+
+
+
+# entry point
+if __name__ == '__main__':
+    print('\nStarting...\n')
+    
+    # define command-line args
+    ap = argparse.ArgumentParser()
+    ap.add_argument(
+        '--input_dir',
+        type=str,
+        required=True,
+        help='the input folder; all playlists found in this folder will be processed'
+    )
+    ap.add_argument(
+        '--output_dir',
+        type=str,
+        default='output',
+        help='the output directory'
+    )
+    ap.add_argument(
+        '--bitrate',
+        type=str,
+        default='320k',
+        help='bitrate of encoded mp3 files, e.g.: 160k, 256k, 320k, etc'
+    )
+    ap.add_argument(
+        '--invalid_chars',
+        type=str,
+        default='<>":|?*',
+        help='invalid OS chars that may be present in playlist files'
+    )
+    ap.add_argument(
+        '--replacement_char',
+        type=str,
+        default='_',
+        help='replace all invalid characters with this character'
+    )
+    ap.add_argument(
+        '--garmin_music_root_path',
+        type=str,
+        default='Music/',
+        help='root path your Garmin device expects to find your music; will be prepended to all playlist songs'
+    )
+    options = ap.parse_args()
+    
+    # do some sanity checks on input options
+    if not os.path.isdir(options.input_dir):
+        print('Error: specified input folder "' + options.input_dir + '" does not exist; aborting!')
+        exit(-1)
+    
+    target_bitrate = options.bitrate.lower().replace('k', '')
+    try:
+        float(target_bitrate)
+    except:
+        print('Error: specified bitrate (' + options.bitrate + ') is not valid; aborting!')
+        exit(-1)
+        
+    if not options.bitrate.lower().endswith('k'):
+        options.bitrate = options.bitrate + 'k'
+
+    print("Input path: " + options.input_dir)
+    print("Output path: " + options.output_dir)
+    
+    # collect playlist files in input directory
+    files = []
+    for item_name in os.listdir(options.input_dir):
+        full_path = os.path.join(options.input_dir, item_name)
+        if os.path.isfile(full_path):
+            if full_path.lower().endswith('.m3u') or full_path.lower().endswith('.m3u8'):
+                files.append(full_path)
+    
+    print('\nFound ' + str(len(files)) + ' playlist(s) in "' + options.input_dir + '".')
+    
+    # process each found playlist
+    for file in files:
+        process_playlist(file, options)
+
     print('\nDone!')
