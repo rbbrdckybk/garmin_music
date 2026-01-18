@@ -18,7 +18,7 @@ I've tested this with a Forerunner 265 and Vivoactive 4, mainly with music (90% 
 
 You'll need [Python 3.10+](https://www.python.org/downloads/) installed.
 
-**[1]** Install [FFMpeg](https://www.ffmpeg.org/) and add it to your path (Windows example below, assuming you installed it to C:\Applications\ffmpeg). You may need to open an elevated command prompt ("run as administrator") if you get an error about not being able to edit the registry here:
+**[1]** Install [FFMpeg](https://www.ffmpeg.org/) and add it to your path (Windows example below, assuming you installed FFMpeg to **C:\Applications\ffmpeg**). You may need to open an elevated command prompt ("run as administrator") if you get an error about not being able to edit the registry here:
 ```
 setx /m PATH "C:\Applications\ffmpeg\bin;%PATH%"
 ```
@@ -39,7 +39,7 @@ pip install requirements.txt
 ```
 python garmin-music.py --playlist "C:\Music\Running\Running 2026.m3u" --output "C:\Music\Garmin" --bitrate 320k
 ```
-Assuming you have a playlist named 'Running 2026.m3u' in **C:\Music\Running**, this will create a folder at **C:\Music\Garmin** with a 'Running_2026.m3u8' playlist and all of your music transcoded to 320kbps .mp3, with internal folder structure preserved. You can then simply copy the contents of **C:\Music\Garmin** to the **/Music** folder on your Garmin device (just plug it into your computer via USB and copy via Windows Explorer; no need for Garmin Connect). On your Garmin device, you should see a **Running 2026** playlist in your "Local Music" (exact name may vary between Garmin models).
+Assuming you have a playlist named 'Running 2026.m3u' in **C:\Music\Running**, this will create a folder at **C:\Music\Garmin** with a 'Running 2026.m3u8' playlist and all of your music transcoded to 320kbps .mp3, with internal folder structure preserved. You can then simply copy the contents of **C:\Music\Garmin** to the **/Music** folder on your Garmin device (just plug it into your computer via USB and copy via Windows Explorer; no need for Garmin Connect). On your Garmin device, you should see a **Running 2026** playlist in your "Local Music" (exact name may vary between Garmin models).
 
 You can get additional options with:
 ```
