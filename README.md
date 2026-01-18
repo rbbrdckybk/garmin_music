@@ -37,9 +37,11 @@ pip install requirements.txt
 
 **[4]** Run the utility:
 ```
-python garmin-music.py --playlist "C:\Music\Running\Running 2026.m3u" --output "C:\Music\Garmin" --bitrate 320k
+python garmin-music.py --input_dir "C:\Music\Playlists" --output_dir "C:\Garmin" --bitrate 320k
 ```
-Assuming you have a playlist named 'Running 2026.m3u' in **C:\Music\Running**, this will create a folder at **C:\Music\Garmin** with a 'Running 2026.m3u8' playlist and all of your music transcoded to 320kbps .mp3, with internal folder structure preserved. You can then simply copy the contents of **C:\Music\Garmin** to the **/Music** folder on your Garmin device (just plug it into your computer via USB and copy via Windows Explorer; no need for Garmin Connect). On your Garmin device, you should see a **Running 2026** playlist in your "Local Music" (exact name may vary between Garmin models).
+Assuming you have a playlist named 'Running 2026.m3u' in **C:\Music\Playlists**, this will create a folder at **C:\Garmin** with a 'Running 2026.m3u8' playlist and all of your music transcoded to 320kbps .mp3, with internal folder structure preserved. You can then simply copy the contents of **C:\Garmin** to the **/Music** folder on your Garmin device (just plug it into your computer via USB and copy via Windows Explorer; no need for Garmin Connect). On your Garmin device, you should see a **Running 2026** playlist in your "Local Music" (exact name may vary between Garmin models).
+
+If you have additional playlists in **C:\Music\Playlists**, each will be handled the same way. You may specify input and output directories as absolute or relative paths.
 
 You can get additional options with:
 ```
