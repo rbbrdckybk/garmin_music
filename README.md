@@ -1,7 +1,7 @@
 # Garmin Music Utility
-Simple CLI utility for cleanly transferring music onto your Garmin watch. Handles transcoding, avoids Garmin character/filename issues, and preserves metadata & album art. No need to install or use Garmin Connect.
+Simple CLI utility for cleanly transferring music onto your Garmin watch. Handles transcoding, avoids Garmin character/filename issues, and preserves metadata & album art. No need to install or use Garmin Express.
 
-I created this after being frustrated with Garmin's embarrassing lack of support for self-hosted audio libraries. Often, my music files would not be available on my Garmin devices after copying them with Garmin Connect due to various long-standing bugs [such as this one](https://forums.garmin.com/outdoor-recreation/outdoor-recreation/f/fenix-6-series/195023/problem-with-all-songs-in-playlists-that-have-accented-characters-in-the-artist-or-song-name). 
+I created this after being frustrated with Garmin's embarrassing lack of support for self-hosted audio libraries. Often, my music files would not be available on my Garmin devices after copying them with Garmin Express due to various long-standing bugs [such as this one](https://forums.garmin.com/outdoor-recreation/outdoor-recreation/f/fenix-6-series/195023/problem-with-all-songs-in-playlists-that-have-accented-characters-in-the-artist-or-song-name). 
 
 # Features
  * Converts your playlists to Garmin-friendly .m3u8 files, including the device root and proper path separators.
@@ -39,7 +39,7 @@ pip install requirements.txt
 ```
 python garmin-music.py --input_dir "C:\Music\Playlists" --output_dir "C:\Garmin" --bitrate 320k
 ```
-Assuming you have a playlist named 'Running 2026.m3u' in **C:\Music\Playlists**, this will create a folder at **C:\Garmin** with a 'Running 2026.m3u8' playlist and all of your music transcoded to 320kbps .mp3, with internal folder structure preserved. You can then simply copy the contents of **C:\Garmin** to the **/Music** folder on your Garmin device (just plug it into your computer via USB and copy via Windows Explorer; no need for Garmin Connect). On your Garmin device, you should see a **Running 2026** playlist in your "Local Music" (exact name may vary between Garmin models).
+Assuming you have a playlist named 'Running 2026.m3u' in **C:\Music\Playlists**, this will create a folder at **C:\Garmin** with a 'Running 2026.m3u8' playlist and all of your music transcoded to 320kbps .mp3, with internal folder structure preserved. You can then simply copy the contents of **C:\Garmin** to the **/Music** folder on your Garmin device (just plug it into your computer via USB and copy via Windows Explorer; no need for Garmin Express). On your Garmin device, you should see a **Running 2026** playlist in your "Local Music" (exact name may vary between Garmin models).
 
 If you have additional playlists in **C:\Music\Playlists**, each will be handled the same way. You may specify input and output directories as absolute or relative paths.
 
