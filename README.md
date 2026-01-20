@@ -32,7 +32,7 @@ cd garmin_music
 
 **[3]** Install a couple required Python packages:
 ```
-pip install requirements.txt
+pip install -r requirements.txt
 ```
 
 **[4]** Run the utility:
