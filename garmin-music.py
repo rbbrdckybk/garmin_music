@@ -217,6 +217,17 @@ def process_playlist(playlist, options):
             pattern = r'[^a-zA-Z0-9_ -]'
             cleaned_name = re.sub(pattern, options.replacement_char, n)
             output_songname = cleaned_name + '.mp3'
+            if options.strip_leading_track_numbers:
+                # attempt to strip leading track numbers if requested
+                try:
+                    track_num = output_songname.split(' - ', 1)[0].strip()
+                    int(track_num)
+                except:
+                    # not a track number, do nothing
+                    pass
+                else:
+                    # looks like a track number, remove it
+                    output_songname = output_songname.split(' - ', 1)[1]    
             output_path_song = os.path.join(options.output_dir, os.path.dirname(song))
             output_path_song = os.path.join(output_path_song, output_songname)
             os.makedirs(os.path.dirname(output_path_song), exist_ok=True)
@@ -303,6 +314,12 @@ if __name__ == '__main__':
         type=str,
         default='Music/',
         help='root path your Garmin device expects to find your music; will be prepended to all playlist songs'
+    )
+    ap.add_argument(
+        '--strip_leading_track_numbers',
+        action='store_true',
+        default=False,
+        help='attempt to remove leading track numbers; useful you use Navidrome and it auto-adds them during playlist downloads'
     )
     options = ap.parse_args()
     
