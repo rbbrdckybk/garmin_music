@@ -168,8 +168,8 @@ def transcode_to_mp3(input_file, output_file, bitrate='320k', audio_format=''):
         # if this is an opus file, try forcing ogg format
         if input_format == 'opus':
             print('\tAn error occurred during transcoding of .opus source file, retrying as .ogg...')
-            transcode_to_mp3(input_file, output_file, bitrate=bitrate, audio_format='ogg')
-            return 'opus second attempt'
+            error = transcode_to_mp3(input_file, output_file, bitrate=bitrate, audio_format='ogg')
+            return error
 
         print('\tAn error occurred: ' + str(type(e).__name__) + ' – ' + str(e))
         print('\tMake sure FFmpeg is installed and in your system''s PATH!')
@@ -242,28 +242,39 @@ def process_playlist(playlist, options):
             output_path_song = os.path.join(output_path_song, output_songname)
             os.makedirs(os.path.dirname(output_path_song), exist_ok=True)
             
+            c = str(count)
+            if count <= 9 and total > 9:
+                c = '0' + c
             # transcode
-            print('[' + str(count) + '/' + str(total) + '] Transcoding "' + full_path_song + '" to ' + options.bitrate + 'bps MP3...')
-            
-            format = os.path.splitext(full_path_song)[1].strip('.').lower()
-            copy_instead = False
-            bitrate = 0
-            if format == 'mp3':
-                bitrate = get_mp3_bitrate(full_path_song)
-                try:
-                    float(bitrate)
-                except:
-                    pass
-                else:
-                    if float(bitrate) <= float(target_bitrate):
-                        copy_instead = True
+            print('[' + c + '/' + str(total) + '] Transcoding "' + full_path_song + '" to ' + options.bitrate + 'bps MP3...')
+
+            # check to see if target file already exists
+            already_exists = False
+            if not options.overwrite_existing:
+                if os.path.isfile(output_path_song):
+                    already_exists = True
+                    print('\tDestination file already exists; skipping transcode...')
 
             error = ''
-            if copy_instead:
-                print('\tSource file is already at or under target transcoding bitrate (' + str(bitrate) + 'kbps), copying instead...')
-                shutil.copy2(full_path_song, output_path_song)
-            else:
-                error = transcode_to_mp3(full_path_song, output_path_song, bitrate=options.bitrate)
+            if not already_exists:
+                format = os.path.splitext(full_path_song)[1].strip('.').lower()
+                copy_instead = False
+                bitrate = 0
+                if format == 'mp3':
+                    bitrate = get_mp3_bitrate(full_path_song)
+                    try:
+                        float(bitrate)
+                    except:
+                        pass
+                    else:
+                        if float(bitrate) <= float(target_bitrate):
+                            copy_instead = True
+
+                if copy_instead:
+                    print('\tSource file is already at or under target transcoding bitrate (' + str(bitrate) + 'kbps), copying instead...')
+                    shutil.copy2(full_path_song, output_path_song)
+                else:
+                    error = transcode_to_mp3(full_path_song, output_path_song, bitrate=options.bitrate)
             
             # write to the playlist file if no transcoding errors
             if error == '':
@@ -332,6 +343,12 @@ if __name__ == '__main__':
         action='store_true',
         default=False,
         help='attempt to remove leading track numbers; useful you use Navidrome and it auto-adds them during playlist downloads'
+    )
+    ap.add_argument(
+        '--overwrite_existing',
+        action='store_true',
+        default=False,
+        help='overwrite existing files in the target directory'
     )
     options = ap.parse_args()
     
