@@ -1,30 +1,23 @@
-# Copyright 2026, Bill Kennedy (https://github.com/rbbrdckybk)
-# SPDX-License-Identifier: MIT
-
-# Usage help: python garmin-music.py --help
-# Example: python garmin-music.py --input_dir "C:\Music\Playlists" --output_dir "C:\Music\Garmin" --bitrate 320k
-
-from pydub import AudioSegment
-from mutagen.easyid3 import EasyID3
-from mutagen import File
-from mutagen.id3 import APIC, ID3, ID3NoHeaderError, TPE1, TALB, TIT2, TRCK
-from mutagen.flac import Picture, FLAC
-from mutagen.mp3 import MP3
-from collections import deque
-from os.path import exists
-import os
+import argparse
 import re
 import shutil
-import argparse
+import urllib.parse
 import mutagen
+
+from pathlib import Path
+from collections import deque
+from pydub import AudioSegment
+from mutagen.id3 import APIC, ID3
+from mutagen.flac import Picture, FLAC
+from mutagen.mp3 import MP3
 
 
 # for easy reading of playlist files
 class TextFile():
-    def __init__(self, filename):
+    def __init__(self, filepath: Path):
         self.lines = deque()
-        if exists(filename):
-            with open(filename, encoding = 'utf-8') as f:
+        if filepath.exists():
+            with open(filepath, encoding = 'utf-8') as f:
                 l = f.readlines()
 
             for x in l:
@@ -44,8 +37,8 @@ class TextFile():
 
 
 # retrieves the bitrate of an MP3 file in kbps
-def get_mp3_bitrate(file_path):
-    if not os.path.exists(file_path):
+def get_mp3_bitrate(file_path: Path):
+    if not file_path.exists():
         return f"Error: File not found at {file_path}"
 
     try:
@@ -58,18 +51,18 @@ def get_mp3_bitrate(file_path):
         
         
 # copies all common metadata tags from source -> destination audio file        
-def copy_all_tags(source_file, destination_file):
+def copy_all_tags(source_path: Path, target_path: Path):
     # Load source tags using EasyID3
-    source_audio = mutagen.File(source_file, easy=True)
+    source_audio = mutagen.File(source_path, easy=True)
     
-    if source_audio is None:
-        print('\tCould not open ' + source_file + ' or determine file type; skipping...')
+    if not source_audio:
+        print('\tCould not open ' + source_path + ' or determine file type; skipping...')
     else:
         # Load destination file
-        destination_audio = mutagen.File(destination_file, easy=True)
+        destination_audio = mutagen.File(target_path, easy=True)
         
         if destination_audio is None:
-            print(f"Could not open {destination_file} or determine file type.")
+            print(f"Could not open {target_path} or determine file type.")
         else:
             # Copy all tags from source to destination
             for key, value in source_audio.items():
@@ -78,18 +71,20 @@ def copy_all_tags(source_file, destination_file):
                 except mutagen.easyid3.EasyID3KeyError as e:
                     # ignore invalid key errors
                     pass
-                except Exception as e:
-                    print('\tAn error occurred: ' + str(type(e).__name__) + ' – ' + str(e))
+                except ValueError:
+                    # Ignore values that might not be set correctly. For instance, had issues with NaN decibel values.
+                    pass
+                # Let the function fail is something is inherently wrong.
 
             # Save the destination file
             destination_audio.save()
-            print('\tSuccessfully copied metadata tags from ' + source_file + ' to ' + destination_file)
+            print(f"\tSuccessfully copied metadata tags from {source_path} to {target_path}")
             
 
 # copies album art from source -> destination audio file  
-def copy_art(source_path, target_path):
+def copy_art(source_path: Path, target_path: Path):
     # Load Source File & Extract Art
-    source_audio = File(source_path)
+    source_audio = mutagen.File(source_path)
     source_art = None
     if isinstance(source_audio, FLAC):
         # FLAC uses Picture objects
@@ -112,7 +107,7 @@ def copy_art(source_path, target_path):
         return
 
     # Load Target File & Prepare for Art Addition
-    target_audio = File(target_path)
+    target_audio = mutagen.File(target_path)
     if isinstance(target_audio, FLAC):
         target_audio.clear_pictures() # Remove old FLAC pictures
         new_pic = Picture()
@@ -142,158 +137,123 @@ def copy_art(source_path, target_path):
 
     # Save Target File
     target_audio.save()
-    print('\tCopied album cover art from ' + os.path.basename(source_path) + ' to ' + os.path.basename(target_path))
+    print(f"\tCopied album cover art from {source_path.absolute()} to {target_path.absolute()}")
 
 
 # converts music files to mp3
-def transcode_to_mp3(input_file, output_file, bitrate='320k', audio_format=''):
-    
-    input_format = audio_format.lower().strip()
-    if input_format == '':
-        # Determine the input format from the file extension
-        input_format = os.path.splitext(input_file)[1].strip('.').lower()
-        if not input_format:
-            print('\tCannot determine format for ' + input_file + ', skipping...')
-            return 'unknown format'
+def transcode_to_mp3(input_file: Path, output_file: Path, bitrate='320k', audio_format=''):
+    input_file_extension = input_file.suffix
+    input_file_format = input_file_extension[1:]
+    audio_format = "ogg" if input_file_extension == ".ogg" else audio_format
+    if not input_file_format:
+        print(f"\tCannot determine format for {input_file.absolute()}, skipping...")
+        return 'unknown format'
+    # try:
+    # Load the audio file using the correct format
+    sound = AudioSegment.from_file(input_file, format=input_file_format)
 
-    try:
-        # Load the audio file using the correct format
-        sound = AudioSegment.from_file(input_file, format=input_format)
-
-        # Export the audio to MP3 format with a specified bitrate
-        sound.export(output_file, format="mp3", bitrate=bitrate)
-        print('\tSuccessfully transcoded ' + input_file + ' to ' + output_file)
-
-    except Exception as e:
-        # if this is an opus file, try forcing ogg format
-        if input_format == 'opus':
-            print('\tAn error occurred during transcoding of .opus source file, retrying as .ogg...')
-            error = transcode_to_mp3(input_file, output_file, bitrate=bitrate, audio_format='ogg')
-            return error
-
-        print('\tAn error occurred: ' + str(type(e).__name__) + ' – ' + str(e))
-        print('\tMake sure FFmpeg is installed and in your system''s PATH!')
-        return str(e)
-    else:
-        # copy metadata tags to the new file
-        copy_all_tags(input_file, output_file)
-        copy_art(input_file, output_file)
+    # Export the audio to MP3 format with a specified bitrate
+    sound.export(output_file, format="mp3", bitrate=bitrate)
+    print(f"\tSuccessfully transcoded {input_file.absolute()} to {output_file.absolute()}")
+    copy_all_tags(input_file, output_file)
+    copy_art(input_file, output_file)
     return ''
 
 
 # handles 
-def process_playlist(playlist, options):
-    print('\nWorking on "' + playlist + '":')
+def process_playlist(
+    playlist_file_path: Path, 
+    base_path: Path,
+    target_path: Path, 
+    invalid_chars: list[str], 
+    replacement_char: str, 
+    strip_leading_track_numbers: bool,
+    bitrate: str,
+    overwrite_existing: bool,
+    garmin_music_root_path: Path
+):
+
+    print(f"\nWorking on {playlist_file_path}:")
     # Read songs from specified playlist file
-    pf = TextFile(playlist)
-    total = pf.lines_remaining()
+    playlist_file = TextFile(playlist_file_path)
+    total = playlist_file.lines_remaining()
     
-    if pf.lines_remaining() == 0:
-        print('No songs in "' + playlist + '", aborting!')
+    if playlist_file.lines_remaining() == 0:
+        print(f"No songs in {playlist_file_path}, aborting!")
         return
     else:
-        print('Found ' + str(total) + ' songs in "' + playlist + '", starting...')
+        print(f"Found {total} songs in {playlist_file_path}, starting...")
         
     # create output directory if it does not already exist;
+    target_path.mkdir(parents=True, exist_ok=True)
     # create output playlist file
-    os.makedirs(options.output_dir, exist_ok=True)
-    n, e = os.path.splitext(os.path.basename(playlist))
-    output_filename = os.path.join(options.output_dir, n + '.m3u8')
-    output_file = open(output_filename, "w", encoding = 'utf-8')
-            
-    invalid_chars = []
-    if options.invalid_chars != '':
-        invalid_chars = list(options.invalid_chars)
+    playlist_file_name = playlist_file_path.stem
+    output_playlist_file_path = target_path / f"{playlist_file_name}.m3u8"
+    with open(output_playlist_file_path, "w", encoding="utf-8") as output_playlist_file:
         
-    # interate through playlist: transcode, rename, and write each song to output dir
-    count = 0
-    while pf.lines_remaining() > 0:
-        count += 1
-        song = pf.next_line()
-        
-        # replace any invalid OS characters in song names from the playlist before starting processing
-        for c in invalid_chars:
-            if c in song:
-                print('\tReplaced invalid "' + str(c) + '" character(s) in "' + song + '"...')
-                song = song.replace(c, options.replacement_char)
-        
-        full_path_song = os.path.join(options.input_dir, song)
-        
-        # process each song
-        if exists(full_path_song):
-            # get the output path; make output folders where necessary
-            # replace special chars in song filenames with underscores
-            n, e = os.path.splitext(os.path.basename(song))
-            pattern = r'[^a-zA-Z0-9_ -]'
-            cleaned_name = re.sub(pattern, options.replacement_char, n)
-            output_songname = cleaned_name + '.mp3'
-            if options.strip_leading_track_numbers:
-                # attempt to strip leading track numbers if requested
-                try:
-                    track_num = output_songname.split(' - ', 1)[0].strip()
-                    int(track_num)
-                except:
-                    # not a track number, do nothing
-                    pass
-                else:
-                    # looks like a track number, remove it
-                    output_songname = output_songname.split(' - ', 1)[1]    
-            output_path_song = os.path.join(options.output_dir, os.path.dirname(song))
-            output_path_song = os.path.join(output_path_song, output_songname)
-            os.makedirs(os.path.dirname(output_path_song), exist_ok=True)
-            
-            c = str(count)
-            if count <= 9 and total > 9:
-                c = '0' + c
-            # transcode
-            print('[' + c + '/' + str(total) + '] Transcoding "' + full_path_song + '" to ' + options.bitrate + 'bps MP3...')
-
-            # check to see if target file already exists
-            already_exists = False
-            if not options.overwrite_existing:
-                if os.path.isfile(output_path_song):
-                    already_exists = True
-                    print('\tDestination file already exists; skipping transcode...')
-
-            error = ''
-            if not already_exists:
-                format = os.path.splitext(full_path_song)[1].strip('.').lower()
-                copy_instead = False
-                bitrate = 0
-                if format == 'mp3':
-                    bitrate = get_mp3_bitrate(full_path_song)
+        # interate through playlist: transcode, rename, and write each song to output dir
+        count = 0
+        while playlist_file.lines_remaining() > 0:
+            count += 1
+            song = urllib.parse.unquote(playlist_file.next_line())
+            full_path_song = base_path / song
+    
+            # process each song
+            if full_path_song.exists():
+                # get the output path; make output folders where necessary
+                # replace special chars in song filenames with underscores
+                pattern = r'[^a-zA-Z0-9_ -]'
+                cleaned_name = re.sub(pattern, replacement_char, full_path_song.stem)
+                output_songname = f"{cleaned_name}.mp3"
+                if strip_leading_track_numbers:
+                    # attempt to strip leading track numbers if requested
                     try:
-                        float(bitrate)
+                        track_num = output_songname.split(' - ', 1)[0].strip()
+                        int(track_num)
                     except:
+                        # not a track number, do nothing
                         pass
                     else:
+                        # looks like a track number, remove it
+                        output_songname = output_songname.split(' - ', 1)[1]
+                output_path_song = target_path / output_songname
+                
+                c = str(count)
+                if count <= 9 and total > 9:
+                    c = '0' + c
+                # transcode
+                print(f"[{c}/{total}] Transcoding {full_path_song} to {bitrate} bps MP3")
+
+                # check to see if target file already exists
+                already_exists = True if output_path_song.exists() else False
+                error = ""
+                if already_exists:
+                    print('\tDestination file already exists; skipping transcode...')
+                else:
+                    file_extension = full_path_song.suffix
+                    copy_instead = False
+                    if file_extension == 'mp3':
+                        bitrate = get_mp3_bitrate(full_path_song)
+                        try:
+                            float(bitrate)
+                        except:
+                            pass
                         if float(bitrate) <= float(target_bitrate):
                             copy_instead = True
 
-                if copy_instead:
-                    print('\tSource file is already at or under target transcoding bitrate (' + str(bitrate) + 'kbps), copying instead...')
-                    shutil.copy2(full_path_song, output_path_song)
-                else:
-                    error = transcode_to_mp3(full_path_song, output_path_song, bitrate=options.bitrate)
-            
-            # write to the playlist file if no transcoding errors
-            if error == '':
-                # get the path relative to the playlist file
-                relative_path_song = full_path_song
-                if options.input_dir != '':
-                    relative_path_song = full_path_song.replace(options.input_dir, '', 1)
-                    if not options.input_dir.startswith(os.sep):
-                        if relative_path_song.startswith(os.sep):
-                            relative_path_song = relative_path_song[1:]
-                relative_path_song = os.path.dirname(relative_path_song)
-                relative_path_song = os.path.join(relative_path_song, output_songname)
-                            
-                # write the song to the output playlist
-                garmin_path = relative_path_song.replace(os.sep, "/")
-                output_file.write(options.garmin_music_root_path + garmin_path + '\n')
-        else:
-            print('Error: specified playlist entry "' + full_path_song + '" does not exist!')
-    output_file.close()
+                    if copy_instead:
+                        print('\tSource file is already at or under target transcoding bitrate (' + str(bitrate) + 'kbps), copying instead...')
+                        shutil.copy2(full_path_song, output_path_song)
+                    else:
+                        error = transcode_to_mp3(full_path_song, output_path_song, bitrate=bitrate)
+                
+                # write to the playlist file if no transcoding errors
+                if not error:
+                    # get the path relative to the playlist file
+                    garmin_path = full_path_song.parent / output_songname
+                    output_playlist_file.write(f"{garmin_path.absolute()} \n")
+            else:
+                print(f'Error: specified playlist entry {full_path_song} does not exist!')
 
 
 # entry point
@@ -351,17 +311,24 @@ if __name__ == '__main__':
         help='overwrite existing files in the target directory'
     )
     options = ap.parse_args()
+    base_path = Path(options.input_dir)
+    target_path = Path(options.output_dir)
+    invalid_chars = list(options.invalid_chars) if options.invalid_chars else []
+    replacement_char: str = options.replacement_char
+    strip_leading_track_numbers: bool = options.strip_leading_track_numbers
+    garmin_music_root_path: Path = Path(options.garmin_music_root_path)
     
     # do some sanity checks on input options
-    if not os.path.isdir(options.input_dir):
-        print('Error: specified input folder "' + options.input_dir + '" does not exist; aborting!')
+    if not base_path.is_dir():
+        print(f"Error: specified input folder {base_path} does not exist; aborting!")
         exit(-1)
     
     target_bitrate = options.bitrate.lower().replace('k', '')
     try:
         float(target_bitrate)
     except:
-        print('Error: specified bitrate (' + options.bitrate + ') is not valid; aborting!')
+        # Probably better to raise an error.
+        print(f"Error: specified bitrate {options.bitrate} is not valid; aborting!")
         exit(-1)
         
     if not options.bitrate.lower().endswith('k'):
@@ -371,17 +338,22 @@ if __name__ == '__main__':
     print("Output path: " + options.output_dir)
     
     # collect playlist files in input directory
-    files = []
-    for item_name in os.listdir(options.input_dir):
-        full_path = os.path.join(options.input_dir, item_name)
-        if os.path.isfile(full_path):
-            if full_path.lower().endswith('.m3u') or full_path.lower().endswith('.m3u8'):
-                files.append(full_path)
-    
-    print('\nFound ' + str(len(files)) + ' playlist(s) in "' + options.input_dir + '".')
+    m3u_files = list(base_path.glob("**/*.m3u"))
+    m3u8_files = list(base_path.glob("**/*.m3u8"))
+    playlist_files = m3u_files + m3u8_files
     
     # process each found playlist
-    for file in files:
-        process_playlist(file, options)
+    for playlist_file_path in playlist_files:
+        process_playlist(
+            playlist_file_path=playlist_file_path,
+            base_path=base_path, 
+            target_path=target_path, 
+            invalid_chars=invalid_chars, 
+            replacement_char=replacement_char, 
+            strip_leading_track_numbers=strip_leading_track_numbers, 
+            bitrate=options.bitrate,
+            overwrite_existing=options.overwrite_existing, 
+            garmin_music_root_path=garmin_music_root_path
+        )
 
     print('\nDone!')
