@@ -65,7 +65,6 @@ def copy_all_tags(source_path: Path, target_path: Path):
             print(f"Could not open {target_path} or determine file type.")
         else:
             # Copy all tags from source to destination
-            # print(f"{source_audio.items()=}")
             for key, value in source_audio.items():
                 try:
                     destination_audio[key] = value
